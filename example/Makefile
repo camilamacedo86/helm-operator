@@ -6,7 +6,7 @@ all: docker-build
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run:
-	go run ../main.go
+	go run ../main.go run
 
 # Install CRDs into a cluster
 install:

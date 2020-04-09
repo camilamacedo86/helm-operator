@@ -11,6 +11,7 @@ require (
 	go.uber.org/zap v1.13.0
 	gomodules.xyz/jsonpatch/v2 v2.0.1
 	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8
 	helm.sh/helm/v3 v3.2.0
 	k8s.io/api v0.18.2
 	k8s.io/apiextensions-apiserver v0.18.2
@@ -21,6 +22,7 @@ require (
 	k8s.io/kubectl v0.18.2
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.6.0
+	sigs.k8s.io/kubebuilder v1.0.9-0.20200401165727-b2a2daea16fb
 	sigs.k8s.io/yaml v1.2.0
 )
 
