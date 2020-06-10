@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/joelanford/helm-operator/pkg/annotation"
@@ -49,6 +50,7 @@ import (
 	"github.com/joelanford/helm-operator/pkg/internal/sdk/controllerutil"
 	"github.com/joelanford/helm-operator/pkg/reconciler/internal/conditions"
 	internalhook "github.com/joelanford/helm-operator/pkg/reconciler/internal/hook"
+	"github.com/joelanford/helm-operator/pkg/reconciler/internal/metrics"
 	"github.com/joelanford/helm-operator/pkg/reconciler/internal/updater"
 	"github.com/joelanford/helm-operator/pkg/reconciler/internal/values"
 )
@@ -63,6 +65,7 @@ type Reconciler struct {
 	eventRecorder      record.EventRecorder
 	preHooks           []hook.PreHook
 	postHooks          []hook.PostHook
+	metricsRegistry    metrics.RegistererGathererPredicater
 
 	log                     logr.Logger
 	gvk                     *schema.GroupVersionKind
@@ -128,6 +131,15 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: r.maxConcurrentReconciles})
 	if err != nil {
 		return err
+	}
+
+	if r.metricsRegistry != nil {
+		if err := mgr.Add(&metrics.Server{
+			Gatherer:      r.metricsRegistry,
+			ListenAddress: "0.0.0.0:8686",
+		}); err != nil {
+			return err
+		}
 	}
 
 	if err := r.setupWatches(mgr, c); err != nil {
@@ -729,6 +741,7 @@ func (r *Reconciler) addDefaults(mgr ctrl.Manager, controllerName string) {
 	if r.valueMapper == nil {
 		r.valueMapper = values.DefaultMapper
 	}
+	r.metricsRegistry = metrics.NewLegacyRegistry(r.gvk.Kind)
 }
 
 func (r *Reconciler) setupScheme(mgr ctrl.Manager) {
@@ -737,11 +750,17 @@ func (r *Reconciler) setupScheme(mgr ctrl.Manager) {
 }
 
 func (r *Reconciler) setupWatches(mgr ctrl.Manager, c controller.Controller) error {
+	var predicates []predicate.Predicate
+	if r.metricsRegistry != nil {
+		predicates = append(predicates, r.metricsRegistry.Predicate())
+	}
+
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(*r.gvk)
 	if err := c.Watch(
 		&source.Kind{Type: obj},
 		&handler.EnqueueRequestForObject{},
+		predicates...,
 	); err != nil {
 		return err
 	}
